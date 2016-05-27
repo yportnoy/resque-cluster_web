@@ -19,6 +19,11 @@ module Resque
             erb File.read(File.expand_path(File.dirname(__FILE__ ) + '/views/cluster.erb')),
                   :locals => {:cluster_info => cluster(params[:name], params[:environment])}
           end
+
+          get "/clusters/:name/:environment/:member_name" do
+            erb File.read(File.expand_path(File.dirname(__FILE__ ) + '/views/member.erb')),
+                  :locals => {:member_info => cluster_member(params[:name], params[:environment], params[:member_name])}
+          end
         end
       end
 
@@ -35,10 +40,12 @@ module Resque
 
       def cluster(name, environment)
         cluster_key = "GRU:#{name}:#{environment}"
+
         running_workers_per_member = redis.hgetall("#{cluster_key}:heartbeats").inject({}) do |h,(k,v)|
           h[k] = redis.hgetall("#{cluster_key}:#{k}:workers_running").values.map(&:to_i).inject(:+)
           h
         end
+
         { name: name,
           environment: environment,
           running_worker_counts: redis.hgetall("#{cluster_key}:global:workers_running"),
@@ -48,6 +55,19 @@ module Resque
                             presume_dead_after:   redis.get("#{cluster_key}:presume_host_dead_after"),
                             max_workers_per_host: redis.get("#{cluster_key}:max_workers_per_host")
                           }
+        }
+      end
+
+      def cluster_member(name, environment, member_name)
+        cluster_key = "GRU:#{name}:#{environment}"
+        cluster_member_key = "GRU:#{name}:#{environment}:#{member_name}"
+        {
+          cluster_name: name,
+          environment: environment,
+          member_name: member_name,
+          last_heartbeat: redis.hget("#{cluster_key}:heartbeats","#{member_name}"),
+          running_workes: redis.hgetall("#{cluster_member_key}:workers_running"),
+          max_worker_counts: redis.hgetall("#{cluster_member_key}:max_workers")
         }
       end
 
