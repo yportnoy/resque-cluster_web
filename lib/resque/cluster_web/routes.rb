@@ -34,12 +34,20 @@ module Resque
       end
 
       def cluster(name, environment)
+        cluster_key = "GRU:#{name}:#{environment}"
+        running_workers_per_member = redis.hgetall("#{cluster_key}:heartbeats").inject({}) do |h,(k,v)|
+          h[k] = redis.hgetall("#{cluster_key}:#{k}:workers_running").values.map(&:to_i).inject(:+)
+          h
+        end
         { name: name,
           environment: environment,
-          running_worker_counts: '',
-          max_worker_counts: '',
-          cluster_members: [],
-          global_options: {}
+          running_worker_counts: redis.hgetall("#{cluster_key}:global:workers_running"),
+          max_worker_counts: redis.hgetall("#{cluster_key}:global:max_workers"),
+          cluster_members: running_workers_per_member,
+          global_options: { rebalance_cluster:    redis.get("#{cluster_key}:rebalance"),
+                            presume_dead_after:   redis.get("#{cluster_key}:presume_host_dead_after"),
+                            max_workers_per_host: redis.get("#{cluster_key}:max_workers_per_host")
+                          }
         }
       end
 
