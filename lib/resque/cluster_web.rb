@@ -5,7 +5,7 @@ module Resque
   module ClusterWeb
     class << self
       def redis
-        redis ||= Resque.redis.redis
+        #redis ||= Resque.redis.redis
       end
     end
   end
