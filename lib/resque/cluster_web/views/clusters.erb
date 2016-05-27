@@ -2,10 +2,4 @@
   <h1>Resque Clusters</h1>
 </div>
 
-<%= @clusters %>
-<% for cluster in @clusters %>
-<% erb File.read(File.expand_path(File.dirname(__FILE__ ) + '/views/_cluster.erb')), locals: {cluster: cluster} %>
-  <%= cluster[:name] %>
-  <%= cluster[:environment] %>
-  <%= cluster[:number_of_members] %>
-<% end %>
+<%= clusters %>

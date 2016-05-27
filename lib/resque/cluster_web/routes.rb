@@ -2,27 +2,45 @@ module Resque
   module ClusterWeb
     module Routes
 
+      def redis
+        redis ||= Redis.new(:host => Resque.redis.redis.client.host, :port => Resque.redis.redis.client.port)
+      end
+
       def self.included(base)
         base.class_eval do
           mime_type :json, 'application/json'
 
           get "/clusters" do
-            @clusters = active_clusters
-            erb File.read(File.expand_path(File.dirname(__FILE__ ) + '/views/clusters.erb'))
+            erb File.read(File.expand_path(File.dirname(__FILE__ ) + '/views/clusters.erb')),
+                  :locals => {:clusters => active_clusters}
+          end
+
+          get "/clusters/:name/:environment" do
+            erb File.read(File.expand_path(File.dirname(__FILE__ ) + '/views/cluster.erb')),
+                  :locals => {:cluster_info => cluster(params[:name], params[:environment])}
           end
         end
       end
 
       def active_clusters
         clusters = []
-        pings = ["GRU:test:test-cluster:heartbeats"]
+        pings = redis.keys("GRU:*:*:heartbeats")
         pings.each do |ping|
-          clusters << {name: ping.split(":")[1], environment: ping.split(":")[2], number_of_members: 3 }
+          clusters << { name:               ping.split(":")[1],
+                        environment:        ping.split(":")[2],
+                        number_of_members:  redis.hgetall(ping).count }
         end
         clusters
       end
 
-      def cluster(name)
+      def cluster(name, environment)
+        { name: name,
+          environment: environment,
+          running_worker_counts: '',
+          max_worker_counts: '',
+          cluster_members: [],
+          global_options: {}
+        }
       end
 
       Resque::Server.tabs << 'Clusters'
